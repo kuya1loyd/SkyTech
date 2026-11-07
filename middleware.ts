@@ -1,39 +1,49 @@
-import NextAuth from 'next-auth';
-import { authConfig } from '@/auth.config';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
-const { auth } = NextAuth(authConfig);
+export async function middleware(request: NextRequest) {
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+  });
 
-export default auth((request) => {
   const pathname = request.nextUrl.pathname;
+  const role = token?.role;
+
   if (pathname.startsWith('/admin') || pathname === '/dashboard') {
-    if (request.auth?.user?.role !== 'admin') {
-      return Response.redirect(new URL('/login', request.nextUrl));
+    if (role !== 'admin') {
+      return NextResponse.redirect(new URL('/login', request.url));
     }
   }
+
   if (pathname.startsWith('/technician') || pathname === '/my-tasks') {
-    if (request.auth?.user?.role !== 'technician') {
-      return Response.redirect(new URL('/login', request.nextUrl));
+    if (role !== 'technician') {
+      return NextResponse.redirect(new URL('/login', request.url));
     }
   }
+
   if (pathname.startsWith('/subscriber') || pathname === '/my-account') {
-    if (request.auth?.user?.role !== 'subscriber') {
-      return Response.redirect(new URL('/login', request.nextUrl));
+    if (role !== 'subscriber') {
+      return NextResponse.redirect(new URL('/login', request.url));
     }
   }
+
   if (pathname.startsWith('/shared')) {
-    const role = request.auth?.user?.role;
-    return Response.redirect(
+    return NextResponse.redirect(
       new URL(
         role === 'subscriber'
           ? '/subscriber/help'
           : role === 'technician'
           ? '/technician/my-tasks'
           : '/admin/notifications',
-        request.nextUrl
+        request.url
       )
     );
   }
-});
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
